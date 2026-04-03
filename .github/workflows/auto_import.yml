@@ -41,24 +41,32 @@ jobs:
             sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' "$file"
             sed -i 's/latin1/utf8mb4/g' "$file"
             sed -i 's/CHARACTER SET latin1/CHARACTER SET utf8mb4/g' "$file"
-            sed -i '/ALTER TABLE.*MODIFY COLUMN.*AUTO_INCREMENT/d' "$file"
-            sed -i '/ALTER TABLE.*CHANGE COLUMN.*AUTO_INCREMENT/d' "$file"
+            # حذف أي سطر يحتوي على ALTER TABLE مع AUTO_INCREMENT (بأي صيغة)
+            sed -i '/ALTER TABLE.*AUTO_INCREMENT/d' "$file"
             sed -i '/LOCK TABLES/d' "$file"
             sed -i '/UNLOCK TABLES/d' "$file"
             sed -i '/SET SQL_MODE/d' "$file"
             sed -i '/\/\*!40101/d' "$file"
-            # تحويل التواريخ الصفرية إلى تاريخ صالح (1970-01-01) بدلاً من NULL
+            # تحويل التواريخ الصفرية إلى تاريخ صالح
             sed -i "s/'0000-00-00'/'1970-01-01'/g" "$file"
             sed -i "s/'0000-00-00 00:00:00'/'1970-01-01 00:00:00'/g" "$file"
             echo "✅ Basic fixes applied to $file"
           }
           
-          # عمل نسخة عمل وتطبيق الإصلاحات الأساسية مرة واحدة فقط
+          # دالة لحذف سطر معين من ملف (باستخدام رقم السطر)
+          remove_line() {
+            local file=$1
+            local line_num=$2
+            sed -i "${line_num}d" "$file"
+            echo "Removed line $line_num from $file"
+          }
+          
+          # نسخ الملف الأصلي وتطبيق الإصلاحات الأساسية
           WORK_FILE="tidb_ready.sql"
           cp "$CURRENT_FILE" "$WORK_FILE"
           apply_basic_fixes "$WORK_FILE"
           
-          # دالة لإعادة إنشاء قاعدة البيانات (بداية نظيفة)
+          # دالة لإعادة إنشاء قاعدة البيانات
           recreate_db() {
             echo "Recreating database to ensure clean state..."
             mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
@@ -69,7 +77,6 @@ jobs:
           while [ $RETRY -lt $MAX_RETRIES ]; do
             echo "=== Attempt $((RETRY+1))/$MAX_RETRIES ==="
             
-            # إعادة إنشاء قاعدة البيانات قبل كل محاولة (ضمان بيئة نظيفة)
             recreate_db
             
             # محاولة الاستيراد
@@ -84,23 +91,30 @@ jobs:
             ERROR_MSG=$(cat error.log)
             echo "❌ Import failed: $ERROR_MSG"
             
-            # إذا وصلنا لآخر محاولة، نخرج بخطأ
             if [ $((RETRY+1)) -eq $MAX_RETRIES ]; then
               echo "FATAL: All $MAX_RETRIES attempts failed."
               echo "Last error: $ERROR_MSG"
               exit 1
             fi
             
-            # إذا كان الخطأ بسبب "cannot be null" أو "already exists"، نحاول تطبيق إصلاح إضافي
-            if echo "$ERROR_MSG" | grep -q "cannot be null"; then
-              echo "Detected NOT NULL violation. Converting zero dates to valid date in file."
-              sed -i "s/'0000-00-00'/'1970-01-01'/g" "$WORK_FILE"
-              sed -i "s/'0000-00-00 [0-9:]*'/'1970-01-01 00:00:00'/g" "$WORK_FILE"
+            # معالجة خطأ "auto_increment" (استخراج رقم السطر إن أمكن)
+            if echo "$ERROR_MSG" | grep -q "can't set auto_increment"; then
+              echo "Detected auto_increment error. Removing problematic ALTER TABLE line."
+              # استخراج رقم السطر من رسالة الخطأ (صيغة "at line X")
+              LINE_NUM=$(echo "$ERROR_MSG" | grep -oP 'at line \K[0-9]+')
+              if [ -n "$LINE_NUM" ]; then
+                remove_line "$WORK_FILE" "$LINE_NUM"
+              else
+                # إذا لم نتمكن من استخراج الرقم، نحذف كل أسطر ALTER TABLE التي تحتوي على AUTO_INCREMENT
+                sed -i '/ALTER TABLE.*AUTO_INCREMENT/d' "$WORK_FILE"
+              fi
             fi
             
-            if echo "$ERROR_MSG" | grep -q "already exists"; then
-              echo "Detected 'already exists' - will retry with clean database."
-              # سيتم إعادة إنشاء قاعدة البيانات في بداية المحاولة التالية
+            # معالجة خطأ "cannot be null"
+            if echo "$ERROR_MSG" | grep -q "cannot be null"; then
+              echo "Detected NOT NULL violation. Converting zero dates again."
+              sed -i "s/'0000-00-00'/'1970-01-01'/g" "$WORK_FILE"
+              sed -i "s/'0000-00-00 [0-9:]*'/'1970-01-01 00:00:00'/g" "$WORK_FILE"
             fi
             
             RETRY=$((RETRY+1))
