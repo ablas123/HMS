@@ -14,7 +14,7 @@
 | path to your installation.
 |
 */
-$config['base_url']	= 'http://localhost/hms/';
+$config['base_url'] = 'https://hms-9459.onrender.com/';
 
 /*
 |--------------------------------------------------------------------------
@@ -44,7 +44,7 @@ $config['index_page'] = '';
 | 'ORIG_PATH_INFO'	Uses the ORIG_PATH_INFO
 |
 */
-$config['uri_protocol']	= 'AUTO';
+$config['uri_protocol'] = 'PATH_INFO';
 
 /*
 |--------------------------------------------------------------------------
@@ -93,7 +93,6 @@ $config['charset'] = 'UTF-8';
 */
 $config['enable_hooks'] = FALSE;
 
-
 /*
 |--------------------------------------------------------------------------
 | Class Extension Prefix
@@ -107,7 +106,6 @@ $config['enable_hooks'] = FALSE;
 |
 */
 $config['subclass_prefix'] = 'MY_';
-
 
 /*
 |--------------------------------------------------------------------------
@@ -127,7 +125,6 @@ $config['subclass_prefix'] = 'MY_';
 |
 */
 $config['permitted_uri_chars'] = 'a-z 0-9~%.:_\-';
-
 
 /*
 |--------------------------------------------------------------------------
@@ -330,7 +327,6 @@ $config['compress_output'] = FALSE;
 */
 $config['time_reference'] = 'local';
 
-
 /*
 |--------------------------------------------------------------------------
 | Rewrite PHP Short Tags
@@ -342,7 +338,6 @@ $config['time_reference'] = 'local';
 |
 */
 $config['rewrite_short_tags'] = FALSE;
-
 
 /*
 |--------------------------------------------------------------------------
@@ -356,7 +351,6 @@ $config['rewrite_short_tags'] = FALSE;
 |
 */
 $config['proxy_ips'] = '';
-
 
 /* End of file config.php */
 /* Location: ./application/config/config.php */
