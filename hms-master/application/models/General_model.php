@@ -1,398 +1,181 @@
-<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed'); 
+<?php
+if ( ! defined('BASEPATH')) exit('No direct script access allowed');
 
-class General_model extends CI_Model{
-	
-	public function __construct(){
-		parent::__construct();	
-		date_default_timezone_set("Asia/Manila");
-	}
-	
-	public function companyInfo(){
-		$query = $this->db->get("company_info");
-		return $query->row();
-	}
-	
-	public function getUserLoggedIn($username){
-		$this->db->select("A.user_id, A.lastname, A.firstname, A.middlename, A.picture, B.designation,A.user_role,C.module,
-				D.department_id");
-		$this->db->where('A.username', $username);
-		$this->db->join("designation B","B.designation_id = A.designation","left outer");
-		$this->db->join("user_roles C","C.role_id = A.user_role","left outer");
-		$this->db->join("department D","D.department_id = A.department","left outer");
-		$query = $this->db->get("users A");
-		return $query->row();
-	}	
+class General extends CI_Controller{
 
-	public function insertNew($roomid, $bedNo)
-	{
-		$this->db->query("INSERT INTO room_beds(room_master_id,bed_name,nStatus,InActive) VALUES('".$roomid."','".$bedNo."','Vacant','0')");
-	}
-	
-	public function UserTitles(){
-		$this->db->select("param_id, cValue");	
-		$this->db->where(array(
-			'cCode'		=>	'title_name',
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('cValue','asc');
-		$query = $this->db->get("system_parameters");
-		return $query->result();
-	}
-	
-	public function gender(){
-		$this->db->select("param_id, cValue");	
-		$this->db->where(array(
-			'cCode'		=>	'gender',
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('cValue','asc');
-		$query = $this->db->get("system_parameters");
-		return $query->result();
-	}
-	
-	public function civilStatus(){
-		$this->db->select("param_id, cValue");	
-		$this->db->where(array(
-			'cCode'		=>	'civil_status',
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('cValue','asc');
-		$query = $this->db->get("system_parameters");
-		return $query->result();
-	}
-	
-	public function departmentList(){
-		$this->db->select("department_id, dept_name");	
-		$this->db->where(array(
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('dept_name','asc');
-		$query = $this->db->get("department");
-		return $query->result();
-	}
-	
-	public function designationList(){
-		$this->db->select("designation_id, designation");	
-		$this->db->where(array(
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('designation','asc');
-		$query = $this->db->get("designation");
-		return $query->result();
-	}
-	
-	public function userRoleList(){
-		$this->db->select("role_id, role_name");	
-		$this->db->where(array(
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('role_name','asc');
-		$query = $this->db->get("user_roles");
-		return $query->result();
-	}
-	
-	public function floorList(){
-		$this->db->where(array(
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('floor_name','asc');
-		$query = $this->db->get("floor");
-		return $query->result();
-	}
-	
-	public function roomTypeList(){
-		$this->db->where(array(
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('category_name','asc');
-		$query = $this->db->get("room_category");
-		return $query->result();
-	}
-	
-	public function roomMasterList(){
-		$this->db->where(array(
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('room_name','asc');
-		$query = $this->db->get("room_master");
-		return $query->result();
-	}
-	
-	public function bloodGroup(){
-		$this->db->where(array(
-			'cCode'		=>	'blood_type',
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('cValue','asc');
-		$query = $this->db->get("system_parameters");
-		return $query->result();
-	}
-	
-	public function religionList(){
-		$this->db->where(array(
-			'cCode'		=>	'religion',
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('cValue','asc');
-		$query = $this->db->get("system_parameters");
-		return $query->result();
-	}
-	
-	public function doctorList(){
-		$this->db->select("A.user_id,
-					concat(B.cValue,' ',A.firstname,' ',A.lastname) as 'name'",false);
-		$this->db->where(array(
-			'C.module'		=>	'doctor',
-			'A.InActive'	=>	0	
-		));
-		$this->db->order_by('A.lastname','asc');
-		$this->db->join("system_parameters B","B.param_id = A.title","left outer");
-		$this->db->join("user_roles C","C.role_id = A.user_role","left outer");
-		$query = $this->db->get("users A");
-		return $query->result();
-	}
-	
-	public function insuranceCompList(){
-		$this->db->where(array(
-			'InActive'	=>	0	
-		));
-		$this->db->order_by('company_name','asc');
-		$query = $this->db->get("insurance_comp ");
-		return $query->result();
-	}
-	
-	
-	public function getPageID(){
-		$this->db->select('page_id');
-		$this->db->where("page_link", $this->session->userdata('page_name'));
-		$query = $this->db->get('pages');
-		return $query->row();		
-	}
-	
-	public function lastOPDNo(){
-		$this->db->select("(cValue + 1) as 'opdNo'");
-		$this->db->where("cCode","OUTPATIENTNO");
-		$query = $this->db->get("system_option");	
-		return $query->row();
-	}
-	
-	public function lastIPDNo(){
-		$this->db->select("(cValue + 1) as 'ipdNo'");
-		$this->db->where("cCode","INPATIENTNO");
-		$query = $this->db->get("system_option");	
-		return $query->row();
-	}
-	
-	public function patientList(){
-		$this->db->select("A.patient_no,
-				concat(B.firstname,' ',B.lastname) as name
-				",false);
-		$this->db->where(array(
-			'A.InActive'	=>		0,
-			'A.nStatus'		=>		'Pending'
-		));
-		$this->db->join("patient_personal_info B","B.patient_no = A.patient_no","left outer");
-		$query = $this->db->get("patient_details_iop A");
-		return $query->result();	
-	}
-	
-	public function room_category(){
-		$query = $this->db->get_where("room_category",array('InActive' => 0));	
-		return $query->result();
-	}
-	
-	public function numberofOccuBeds($room_id){
-		$this->db->select("count(bed_name) as numberofOccuBeds");
-		$query = $this->db->get_where("room_beds", array(
-			'InActive' 			=> 	'0',
-			'nStatus'			=>	'Vacant',
-			'room_master_id'	=>	$room_id
-		));
-		return $query->row();
-	}
-	
-	public function numberofUnOccuBeds($room_id){
-		$this->db->select("count(bed_name) as numberofOccuBeds");
-		$query = $this->db->get_where("room_beds", array(
-			'InActive' 			=> 	'0',
-			'nStatus'			=>	'Occupied',
-			'room_master_id'	=>	$room_id
-		));
-		return $query->row();
-	}
-	
-	public function getBeds($room_id){
-		$this->db->select("
-			A.room_bed_id,
-			A.bed_name,
-			C.patient_no,
-			B.IO_ID,
-			concat(D.cValue,' ',C.firstname,' ',C.lastname) as patient,
-			B.date_visit,
-			B.time_visit,
-			A.nStatus
-		",false);
-		$this->db->where(array(
-			'A.room_master_id'		=>		$room_id,
-			'A.InActive'			=>		'0'
-		));
-		$this->db->join("patient_details_iop B","B.IO_ID = A.patient_no","left outer");
-		$this->db->join("patient_personal_info C","C.patient_no = B.patient_no","left outer");
-		$this->db->join("system_parameters D","D.param_id = C.title","left outer");
-		$this->db->order_by("A.bed_name","ASC");
-		$query = $this->db->get("room_beds A");
-		return $query->result();
-	}
-	
-	public function getConditionDis(){
-		$query = $this->db->get_where("system_parameters",array(
-			'InActive'		=>		0,
-			'cCode'			=>		'condition_upon_discharge'
-		));	
-		return $query->result();
-	}
-	
-	public function getPreparedBy($user_id){
-		$query = $this->db->query("SELECT concat(A.firstname,' ',A.middlename,' ',A.lastname) as cPreparedBy FROM `users` A WHERE `A`.`user_id` = '00007'");
-		return $query->row();
-	}
-	
-	public function opdLists($val,$cType){
-		$this->db->select("
-				patient_no,
-				concat(firstname,' ',lastname) as patient
-		",false);
-		$where = "(
-				patient_no like '%".$val."%' or 
-				firstname like '%".$val."%' or 
-				lastname like '%".$val."%'
-			)
-			";
-		$this->db->where($where);
-		$this->db->order_by("patient_no","ASC");
-		$query = $this->db->get("patient_personal_info");
-		return $query->result();
-	}
-	
-	public function getDoctor($doctor_id){
-		$this->db->select("concat(B.cValue,' ',A.firstname,' ',A.middlename,' ',A.lastname) as doctor",false);
-		$this->db->join("system_parameters B","B.param_id = A.title","left outer join");
-		$query = $this->db->get_where("users A",array('A.user_id' => $doctor_id));
-		return $query->row();
-	}
-	
-	public function getDeptName($department_id){
-		$query = $this->db->get_where("department",array('department_id' => $department_id));
-		return $query->row();
-	}
-	
-	
-	public function getroomName($room_master_id){
-		$query = $this->db->get_where("room_master",array('room_master_id' => $room_master_id));
-		return $query->row();
-	}
-	
-	public function getRoomNameLists($category_id){
-		$this->db->order_by("room_name","ASC");
-		$query = $this->db->get_where("room_master",array('category_id'=>$category_id,'InActive'=>0));
-		return $query->result();	
-	}
-	
-	public function getBedList($category_id){
-		$this->db->order_by("bed_name","ASC");
-		$query = $this->db->get_where("room_beds",array('room_master_id'=>$category_id,'InActive'=>0,'nStatus'=>'Vacant'));
-		return $query->result();	
-	}
-	
-	public function getConditionUpon($id){
-		$query = $this->db->get_where("system_parameters",array('param_id' => $id));
-		return $query->row();
-	}
-	
-	public function ipdLists($val){
-		$this->db->select("
-				B.patient_no,
-				A.IO_ID,
-				concat(B.firstname,' ',B.lastname) as patient
-		",false);
-		$where = "(
-				B.patient_no like '%".$val."%' or 
-				A.IO_ID like '%".$val."%' or 
-				B.firstname like '%".$val."%' or 
-				B.lastname like '%".$val."%'
-			) and 
-			A.patient_type = 'IPD' and A.nStatus = 'Pending'
-			";
-		$this->db->where($where);
-		$this->db->order_by("A.IO_ID","ASC");
-		$this->db->join("patient_personal_info B","B.patient_no = A.patient_no","left outer");
-		$query = $this->db->get("patient_details_iop A");
-		return $query->result();
-	}
-	
-	public function reason_dicount(){
-		$query = $this->db->get_where("system_parameters",array('Inactive' => '0', 'cCode' => 'reason_for_discount'));
-		return $query->result();	
-	}
-	
-	public function surgery_list(){
-		$query = $this->db->get_where("surgical_package",array('InActive' => 0));
-		return $query->result();	
-	}
-	
-	public function getSurgeryName(){
-		$query = $this->db->get_where("surgical_package",array('InActive' => 0, 'surgery_id' => $this->input->post('surgery_name')));
-		return $query->row();
-	}	
-	
-	public function getSurgeryItems(){
-		$this->db->select("B.particular_name,A.costs,A.cDesc");
-		$this->db->join("bill_particular B","B.particular_id = A.surgery_item","left outer join");
-		$this->db->order_by("B.particular_name","ASC");
-		$query = $this->db->get_where("surgical_package_t A",array('A.InActive' => 0, 'surgery_id' => $this->input->post('surgery_name')));
-		return $query->result();
-	}
-	
-	public function getSurgeryItems2($iop_id){
-		$this->db->select("C.particular_name,B.costs,B.cDesc");
-		$this->db->join("surgical_package_t B","B.surgery_id = A.operation_name","left outer");
-		$this->db->join("bill_particular C","C.particular_id = B.surgery_item","left outer");
-		$query = $this->db->get_where("iop_operation_theater A",array(
-			'A.InActive'	=>		0,
-			'A.iop_id'		=>		$iop_id,
-			'B.InActive'	=>		0
-		));
-		return $query->result();
-	}
+    function __construct(){
+        parent::__construct();
+        date_default_timezone_set("Asia/Manila");
+        $this->load->model('general_model');
+        
+        // إصلاح مشكلة STRICT_ALL_TABLES: تعطيل sql_mode الصارم فوراً
+        $this->db->query("SET SESSION sql_mode = ''");
+    }
+    
+    public function variable(){
+        $this->data['companyInfo'] = $this->general_model->companyInfo();
+        $this->data['userInfo'] = $this->general_model->getUserLoggedIn($this->session->userdata('username'));
+        $this->data['UserTitles'] = $this->general_model->UserTitles();
+        $this->data['gender'] = $this->general_model->gender();
+        $this->data['civilStatus'] = $this->general_model->civilStatus();
+        $this->data['departmentList'] = $this->general_model->departmentList();
+        $this->data['designationList'] = $this->general_model->designationList();
+        $this->data['userRoleList'] = $this->general_model->userRoleList();
+        $this->data['roomTypeList'] = $this->general_model->roomTypeList();
+        $this->data['floorList'] = $this->general_model->floorList();
+        $this->data['roomMasterList'] = $this->general_model->roomMasterList();
+        $this->data['bloodGroup'] = $this->general_model->bloodGroup();
+        $this->data['religionList'] = $this->general_model->religionList();
+        $this->data['doctorList'] = $this->general_model->doctorList();
+        $this->data['doctorList2'] = $this->general_model->doctorList();
+        $this->data['insuranceCompList'] = $this->general_model->insuranceCompList();
+        $this->data['patientListRows'] = $this->general_model->patientList();
 
+        if( isset($_SESSION['username']) ) {
+            $userRole = $this->general_model->getUserLoggedIn($this->session->userdata('username'));
+            $this->data['hasAccesstoDoctorAvail'] = ($this->has_rights_to_access("134",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoBilling'] = ($this->has_rights_to_access("85",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoPOS'] = ($this->has_rights_to_access("84",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoSurgical'] = ($this->has_rights_to_access("116",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAppointment'] = ($this->has_rights_to_access("121",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAddAppointment'] = ($this->has_rights_to_access("122",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoPatient'] = ($this->has_rights_to_access("49",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAddPatient'] = ($this->has_rights_to_access("48",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoOPDRegistration'] = ($this->has_rights_to_access("91",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoOPDEnquiry'] = ($this->has_rights_to_access("92",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoIPDRegistration'] = ($this->has_rights_to_access("93",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoIPDEnquiry'] = ($this->has_rights_to_access("94",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoRooms'] = ($this->has_rights_to_access("44",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoRoomsEnquiry'] = ($this->has_rights_to_access("99",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoNurse'] = ($this->has_rights_to_access("128",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoNurseBedSide'] = ($this->has_rights_to_access("107",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoNurseInOutTake'] = ($this->has_rights_to_access("101",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoNurseIPRoomTransfer'] = ($this->has_rights_to_access("104",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoNurseDiagnosis'] = ($this->has_rights_to_access("120",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoNurseProgressNote'] = ($this->has_rights_to_access("102",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoNurseDischarge'] = ($this->has_rights_to_access("106",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoNursePatientHistory'] = ($this->has_rights_to_access("105",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoNurseMedication'] = ($this->has_rights_to_access("100",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoNurseVitalSign'] = ($this->has_rights_to_access("103",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoDoctor'] = ($this->has_rights_to_access("129",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoDoctorIPD'] = ($this->has_rights_to_access("90",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoDoctorOPD'] = ($this->has_rights_to_access("89",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoEMR'] = ($this->has_rights_to_access("130",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoEMRIPD'] = ($this->has_rights_to_access("96",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoEMROPD'] = ($this->has_rights_to_access("95",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoUsers'] = ($this->has_rights_to_access("36",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAddUsers'] = ($this->has_rights_to_access("37",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdmin'] = ($this->has_rights_to_access("131",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminCompanyInfo'] = ($this->has_rights_to_access("111",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminDepartment'] = ($this->has_rights_to_access("28",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminDesignation'] = ($this->has_rights_to_access("40",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminBillGroupName'] = ($this->has_rights_to_access("56",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminParticularBill'] = ($this->has_rights_to_access("60",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminComplain'] = ($this->has_rights_to_access("72",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminDiagnosis'] = ($this->has_rights_to_access("64",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminSurgicalPack'] = ($this->has_rights_to_access("112",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminInsuranceCompany'] = ($this->has_rights_to_access("68",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminMedicineCategory'] = ($this->has_rights_to_access("76",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminDrugName'] = ($this->has_rights_to_access("80",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminAckReceipt'] = ($this->has_rights_to_access("117",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminParameters'] = ($this->has_rights_to_access("52",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminBackup'] = ($this->has_rights_to_access("127",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoAdminPages'] = ($this->has_rights_to_access("1",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoReport'] = ($this->has_rights_to_access("132",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoReportPatient'] = ($this->has_rights_to_access("88",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoReportIndividualPatient'] = ($this->has_rights_to_access("98",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoReportOPD'] = ($this->has_rights_to_access("108",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoReportAdmitted'] = ($this->has_rights_to_access("109",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoReportDischarge'] = ($this->has_rights_to_access("110",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoReportDailySales'] = ($this->has_rights_to_access("87",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoReportDoctorsFee'] = ($this->has_rights_to_access("133",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+            $this->data['hasAccesstoReportAR'] = ($this->has_rights_to_access("119",$userRole->user_role) == FALSE) ? FALSE : TRUE;
+        }
+    }
+    
+    public function logfile($module,$event,$value){
+        $this->data = array(
+            'user_id'       => $this->session->userdata('user_id'),
+            'module'        => $module,
+            'event'         => $event,
+            'value'         => $value,
+            'ipaddress'     => $this->input->ip_address(),
+            'date_time'     => date("Y-m-d h:i:s a")
+        );
+        $this->db->insert('logfile',$this->data);
+    }
+    
+    public function is_logged_in(){
+        if($this->session->userdata('is_logged_in')){
+            return true;
+        }else{
+            return false;
+        }
+    }
+    
+    public function has_rights_to_access($page_id,$role_id){
+        $this->db->where(array(
+            'role_id'   => $role_id,
+            'page_id'   => $page_id
+        ));
+        $query = $this->db->get("user_roles_pages");
+        if($query->num_rows() == 1){
+            return true;
+        }else{
+            return false;
+        }
+    }
+    
+    public function getRoomName($category_id){
+        $this->data['room'] = $this->general_model->getRoomNameLists($category_id);
+        $this->load->view('app/general/roomList',$this->data);
+    }
+    
+    public function getBedList($category_id){
+        $this->data['bed'] = $this->general_model->getBedList($category_id);
+        $this->load->view('app/general/bedList',$this->data);
+    }
+    
+    public function ipdLists($val = NULL){
+        $this->data['showPatients'] = $this->general_model->ipdLists($val);
+        $this->load->view("app/general/showIPD",$this->data);
+    }
+    
+    public function surgical_costing(){
+        $this->data['surgery_list'] = $this->general_model->surgery_list($val);
+        $this->load->view("app/general/surgical_costing",$this->data);
+    }   
 
-	public function getDoctorAvailability($status){
-		$this->db->select("A.user_id,
-					D.dept_name,
-					concat(B.cValue,' ',A.firstname,' ',A.lastname) as 'name',
-					A.doctorLastOut,
-					A.doctorLastIn,
-					A.doctorIsIn",false);
-		$this->db->where(array(
-			'C.module'		=>	'doctor',
-			'A.doctorIsIn'	=>	$status,
-			'A.InActive'	=>	0	
-		));
-		$this->db->order_by('A.lastname','asc');
-		$this->db->join("system_parameters B","B.param_id = A.title","left outer");
-		$this->db->join("department D","D.department_id = A.department","left outer");
-		$this->db->join("user_roles C","C.role_id = A.user_role","left outer");
-		$query = $this->db->get("users A");
-		return $query->result();
-	}
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+    public function getDoctorOUT(){
+        $this->data['doctor'] = $this->general_model->getDoctorAvailability('OUT');
+        $this->data['docStatus'] = "OUT";
+        $this->load->view('app/general/doctorsAvailability.php',$this->data);
+    }
+
+    public function getDoctorIN(){
+        $this->data['doctor'] = $this->general_model->getDoctorAvailability('IN');
+        $this->data['docStatus'] = "IN";
+        $this->load->view('app/general/doctorsAvailability.php',$this->data);
+    }
+
+    public function procDocAvail($id, $status)
+    {
+        if($status == "IN")
+        {
+            $this->data = array(
+                'doctorLastIn'  => date("Y-m-d h:i:s A"),
+                'doctorIsIn'    => $status
+            );  
+        }
+        else
+        {
+            $this->data = array(
+                'doctorLastOut' => date("Y-m-d h:i:s A"),
+                'doctorIsIn'    => $status
+            );  
+        }
+        $this->db->where('user_id', $id);
+        $this->db->update("users",$this->data);
+    }
 }
+?>
