@@ -5,12 +5,13 @@ $active_record = TRUE;
 
 $ondevelop = FALSE;
 
-$db['default']['hostname'] = 'gateway01.eu-central-1.prod.aws.tidbcloud.com';
-$db['default']['port']     = '4000';
+$db['default']['dsn'] = 'mysql:host=gateway01.eu-central-1.prod.aws.tidbcloud.com;port=4000;dbname=hms_db;charset=utf8mb4';
+$db['default']['hostname'] = '';
+$db['default']['port'] = '';
 $db['default']['username'] = '4Q3JgFwtV72XTzm.root';
 $db['default']['password'] = 'H35cOolgETH9RMa4';
-$db['default']['database'] = 'hms_db';
-$db['default']['dbdriver'] = 'mysqli';
+$db['default']['database'] = '';
+$db['default']['dbdriver'] = 'pdo';
 $db['default']['dbprefix'] = '';
 $db['default']['pconnect'] = FALSE;
 $db['default']['db_debug'] = TRUE;
@@ -21,8 +22,8 @@ $db['default']['dbcollat'] = 'utf8mb4_general_ci';
 $db['default']['swap_pre'] = '';
 $db['default']['autoinit'] = TRUE;
 $db['default']['stricton'] = FALSE;
-$db['default']['encrypt']  = TRUE;
-$db['default']['ssl_verify'] = FALSE;   // تعطيل التحقق من الشهادة (للتجربة)
+$db['default']['encrypt'] = TRUE;
+$db['default']['ssl_verify'] = FALSE;
 
 /* End of file database.php */
 /* Location: ./application/config/database.php */
