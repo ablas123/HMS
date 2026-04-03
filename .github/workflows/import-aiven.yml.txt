@@ -1,0 +1,37 @@
+name: Import SQL to Aiven (Testing)
+
+on:
+  push:
+    paths:
+      - '**/*.sql'
+  workflow_dispatch:
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find SQL file
+        id: find
+        run: |
+          sql_file=$(find . -name "*.sql" -type f | head -n 1)
+          if [ -z "$sql_file" ]; then
+            echo "No SQL file found"
+            exit 1
+          fi
+          echo "sql_file=$sql_file" >> $GITHUB_OUTPUT
+          echo "Found: $sql_file"
+
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y mysql-client
+
+      - name: Import to Aiven (hardcoded credentials)
+        run: |
+          mysql --ssl-mode=REQUIRED \
+            -h "mysql-3cb37202-ablas123a-f12a.a.aivencloud.com" \
+            -P "10126" \
+            -u "avnadmin" \
+            -p"AVNS_I0p4cP5M1bz4wkTKW2I" \
+            "defaultdb" < "${{ steps.find.outputs.sql_file }}"
+          echo "✅ Import completed successfully"
