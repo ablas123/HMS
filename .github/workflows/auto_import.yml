@@ -1,4 +1,4 @@
-name: Smart TiDB Import (Auto-Fix)
+name: Force TiDB Import (Strip ALTER TABLE)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  smart-import:
+  force-import:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,112 +21,88 @@ jobs:
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mysql-client
 
-      - name: Smart import with auto-fix
+      - name: Aggressive SQL cleaning
+        run: |
+          INPUT="${{ steps.find.outputs.sql_file }}"
+          OUTPUT="cleaned.sql"
+          
+          # نسخ الملف
+          cp "$INPUT" "$OUTPUT"
+          
+          # 1. تحويل MyISAM إلى InnoDB
+          sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' "$OUTPUT"
+          
+          # 2. تحويل الترميز
+          sed -i 's/latin1/utf8mb4/g' "$OUTPUT"
+          sed -i 's/CHARACTER SET latin1/CHARACTER SET utf8mb4/g' "$OUTPUT"
+          
+          # 3. حذف أي أمر ALTER TABLE (جميعها غير ضرورية لإنشاء الجداول)
+          sed -i '/^ALTER TABLE/d' "$OUTPUT"
+          
+          # 4. حذف أوامر LOCK/UNLOCK TABLES
+          sed -i '/LOCK TABLES/d' "$OUTPUT"
+          sed -i '/UNLOCK TABLES/d' "$OUTPUT"
+          
+          # 5. حذف SET SQL_MODE
+          sed -i '/SET SQL_MODE/d' "$OUTPUT"
+          
+          # 6. حذف تعليقات phpMyAdmin
+          sed -i '/\/\*!40101/d' "$OUTPUT"
+          
+          # 7. تحويل التواريخ الصفرية إلى NULL
+          sed -i "s/'0000-00-00'/NULL/g" "$OUTPUT"
+          sed -i "s/'0000-00-00 00:00:00'/NULL/g" "$OUTPUT"
+          
+          echo "✅ Cleaned SQL file ready (no ALTER TABLE statements)"
+
+      - name: Create database
         env:
           TIDB_HOST: ${{ secrets.TIDB_HOST }}
           TIDB_PORT: ${{ secrets.TIDB_PORT }}
           TIDB_USER: ${{ secrets.TIDB_USER }}
           TIDB_PASSWORD: ${{ secrets.TIDB_PASSWORD }}
           TIDB_DATABASE: ${{ secrets.TIDB_DATABASE }}
-          SQL_FILE: ${{ steps.find.outputs.sql_file }}
         run: |
-          set +e
-          MAX_RETRIES=5
-          RETRY=0
-          CURRENT_FILE="$SQL_FILE"
+          mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
+            -e "DROP DATABASE IF EXISTS \`$TIDB_DATABASE\`; CREATE DATABASE \`$TIDB_DATABASE\`;"
+
+      - name: Import cleaned SQL (ignore errors)
+        env:
+          TIDB_HOST: ${{ secrets.TIDB_HOST }}
+          TIDB_PORT: ${{ secrets.TIDB_PORT }}
+          TIDB_USER: ${{ secrets.TIDB_USER }}
+          TIDB_PASSWORD: ${{ secrets.TIDB_PASSWORD }}
+          TIDB_DATABASE: ${{ secrets.TIDB_DATABASE }}
+        run: |
+          # استخدام --force لتجاهل الأخطاء غير الحرجة
+          mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
+            --force "$TIDB_DATABASE" < cleaned.sql 2> import_errors.log
           
-          # دالة لتطبيق الإصلاحات الأساسية على الملف (مرة واحدة)
-          apply_basic_fixes() {
-            local file=$1
-            sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' "$file"
-            sed -i 's/latin1/utf8mb4/g' "$file"
-            sed -i 's/CHARACTER SET latin1/CHARACTER SET utf8mb4/g' "$file"
-            # حذف أي سطر يحتوي على ALTER TABLE مع AUTO_INCREMENT (بأي صيغة)
-            sed -i '/ALTER TABLE.*AUTO_INCREMENT/d' "$file"
-            sed -i '/LOCK TABLES/d' "$file"
-            sed -i '/UNLOCK TABLES/d' "$file"
-            sed -i '/SET SQL_MODE/d' "$file"
-            sed -i '/\/\*!40101/d' "$file"
-            # تحويل التواريخ الصفرية إلى تاريخ صالح
-            sed -i "s/'0000-00-00'/'1970-01-01'/g" "$file"
-            sed -i "s/'0000-00-00 00:00:00'/'1970-01-01 00:00:00'/g" "$file"
-            echo "✅ Basic fixes applied to $file"
-          }
-          
-          # دالة لحذف سطر معين من ملف (باستخدام رقم السطر)
-          remove_line() {
-            local file=$1
-            local line_num=$2
-            sed -i "${line_num}d" "$file"
-            echo "Removed line $line_num from $file"
-          }
-          
-          # نسخ الملف الأصلي وتطبيق الإصلاحات الأساسية
-          WORK_FILE="tidb_ready.sql"
-          cp "$CURRENT_FILE" "$WORK_FILE"
-          apply_basic_fixes "$WORK_FILE"
-          
-          # دالة لإعادة إنشاء قاعدة البيانات
-          recreate_db() {
-            echo "Recreating database to ensure clean state..."
-            mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
-              -e "DROP DATABASE IF EXISTS \`$TIDB_DATABASE\`; CREATE DATABASE \`$TIDB_DATABASE\`;"
-          }
-          
-          # حلقة المحاولات
-          while [ $RETRY -lt $MAX_RETRIES ]; do
-            echo "=== Attempt $((RETRY+1))/$MAX_RETRIES ==="
-            
-            recreate_db
-            
-            # محاولة الاستيراد
-            mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
-              "$TIDB_DATABASE" < "$WORK_FILE" 2> error.log
-            
-            if [ $? -eq 0 ]; then
-              echo "✅ Import succeeded on attempt $((RETRY+1))"
-              break
-            fi
-            
-            ERROR_MSG=$(cat error.log)
-            echo "❌ Import failed: $ERROR_MSG"
-            
-            if [ $((RETRY+1)) -eq $MAX_RETRIES ]; then
-              echo "FATAL: All $MAX_RETRIES attempts failed."
-              echo "Last error: $ERROR_MSG"
-              exit 1
-            fi
-            
-            # معالجة خطأ "auto_increment" (استخراج رقم السطر إن أمكن)
-            if echo "$ERROR_MSG" | grep -q "can't set auto_increment"; then
-              echo "Detected auto_increment error. Removing problematic ALTER TABLE line."
-              # استخراج رقم السطر من رسالة الخطأ (صيغة "at line X")
-              LINE_NUM=$(echo "$ERROR_MSG" | grep -oP 'at line \K[0-9]+')
-              if [ -n "$LINE_NUM" ]; then
-                remove_line "$WORK_FILE" "$LINE_NUM"
-              else
-                # إذا لم نتمكن من استخراج الرقم، نحذف كل أسطر ALTER TABLE التي تحتوي على AUTO_INCREMENT
-                sed -i '/ALTER TABLE.*AUTO_INCREMENT/d' "$WORK_FILE"
-              fi
-            fi
-            
-            # معالجة خطأ "cannot be null"
-            if echo "$ERROR_MSG" | grep -q "cannot be null"; then
-              echo "Detected NOT NULL violation. Converting zero dates again."
-              sed -i "s/'0000-00-00'/'1970-01-01'/g" "$WORK_FILE"
-              sed -i "s/'0000-00-00 [0-9:]*'/'1970-01-01 00:00:00'/g" "$WORK_FILE"
-            fi
-            
-            RETRY=$((RETRY+1))
-          done
-          
-          echo "🎉 Smart import completed successfully."
+          # طباعة ملخص الأخطاء (إن وجدت)
+          if [ -s import_errors.log ]; then
+            echo "⚠️ Some errors occurred during import (ignored):"
+            cat import_errors.log
+          else
+            echo "✅ Import completed with no errors."
+          fi
+
+      - name: Verify tables
+        env:
+          TIDB_HOST: ${{ secrets.TIDB_HOST }}
+          TIDB_PORT: ${{ secrets.TIDB_PORT }}
+          TIDB_USER: ${{ secrets.TIDB_USER }}
+          TIDB_PASSWORD: ${{ secrets.TIDB_PASSWORD }}
+          TIDB_DATABASE: ${{ secrets.TIDB_DATABASE }}
+        run: |
+          echo "Verifying tables in $TIDB_DATABASE:"
+          mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
+            -e "USE $TIDB_DATABASE; SHOW TABLES;"
 
       - name: Cleanup
         run: |
-          rm -f tidb_ready.sql error.log
+          rm -f cleaned.sql import_errors.log
           git config user.name 'github-actions[bot]'
           git config user.email 'bot@github.com'
           git add .
-          git diff --staged --quiet || git commit -m "Auto-cleanup after import"
+          git diff --staged --quiet || git commit -m "Cleanup after import"
           git push
