@@ -5,13 +5,12 @@ $active_group = 'default';
 $query_builder = TRUE;
 
 $db['default'] = array(
-    'dsn'          => '',
-    'hostname'     => 'mysql-3cb37202-ablas123a-f12a.a.aivencloud.com',
-    'port'         => '10126',
+    'dsn'          => 'mysql:host=mysql-3cb37202-ablas123a-f12a.a.aivencloud.com;port=10126;dbname=defaultdb;charset=utf8mb4',
+    'hostname'     => '',
     'username'     => 'avnadmin',
     'password'     => 'AVNS_I0p4cP5M1bz4wkTKW2I',
-    'database'     => 'defaultdb',
-    'dbdriver'     => 'mysqli',
+    'database'     => '',
+    'dbdriver'     => 'pdo',
     'dbprefix'     => '',
     'pconnect'     => FALSE,
     'db_debug'     => (ENVIRONMENT !== 'production'),
