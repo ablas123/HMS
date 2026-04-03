@@ -1,4 +1,4 @@
-name: Clean Import to TiDB
+name: Final Clean Import to TiDB
 
 on:
   push:
@@ -17,36 +17,35 @@ jobs:
         run: |
           sql_file=$(find . -name "*.sql" -type f | head -n 1)
           echo "sql_file=$sql_file" >> $GITHUB_OUTPUT
-          echo "Found: $sql_file"
 
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mysql-client
 
-      - name: Prepare clean database and import
+      - name: Prepare SQL and import
         run: |
-          # 1. حذف قاعدة البيانات القديمة (إن وجدت) وإنشاء قاعدة جديدة
+          # 1. حذف وإنشاء قاعدة بيانات نظيفة
           mysql --ssl-mode=REQUIRED \
             -h "gateway01.eu-central-1.prod.aws.tidbcloud.com" \
             -P "4000" \
             -u "4Q3JgFwtV72XTzm.root" \
             -p"H35cOolgETH9RMa4" \
             -e "DROP DATABASE IF EXISTS hms_db; CREATE DATABASE hms_db;"
-          
-          # 2. تجهيز ملف SQL المعدل
+
+          # 2. تجهيز الملف (تحويل المحرك، الترميز، التواريخ، إزالة ALTER TABLE)
           sed 's/ENGINE=MyISAM/ENGINE=InnoDB/g' "${{ steps.find.outputs.sql_file }}" > tidb_ready.sql
-          sed -i "s/'0000-00-00'/NULL/g" tidb_ready.sql
-          sed -i "s/'0000-00-00 00:00:00'/NULL/g" tidb_ready.sql
-          # إزالة أوامر ALTER TABLE التي تسبب مشكلة AUTO_INCREMENT
+          sed -i 's/latin1/utf8mb4/g' tidb_ready.sql
+          sed -i "s/'0000-00-00'/'1970-01-01'/g" tidb_ready.sql
+          sed -i "s/'0000-00-00 00:00:00'/'1970-01-01 00:00:00'/g" tidb_ready.sql
           sed -i '/ALTER TABLE.*AUTO_INCREMENT/d' tidb_ready.sql
           
-          # 3. استيراد الملف المعدل
+          # 3. استيراد الملف
           mysql --ssl-mode=REQUIRED \
             -h "gateway01.eu-central-1.prod.aws.tidbcloud.com" \
             -P "4000" \
             -u "4Q3JgFwtV72XTzm.root" \
             -p"H35cOolgETH9RMa4" \
             "hms_db" < tidb_ready.sql
-          
+
           echo "✅ Import completed successfully"
 
       - name: Cleanup
