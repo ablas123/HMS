@@ -16,19 +16,16 @@ jobs:
       - name: Patch mysqli_driver.php to disable strict SQL mode
         run: |
           FILE="hms-master/system/database/drivers/mysqli/mysqli_driver.php"
-          # إذا كان الملف موجوداً، نضيف سطراً لتعطيل sql_mode في دالة db_connect()
           if [ -f "$FILE" ]; then
-            # البحث عن السطر الذي يبدأ بـ 'public function db_connect('
-            # وإضافة أمر SET SESSION sql_mode = '' بعد قوس الافتتاح مباشرة
-            sed -i '/public function db_connect(/a \ \ \ \ \ \ \ \ $this->simple_query("SET SESSION sql_mode = '\'''\''");' "$FILE"
+            sed -i '/public function db_connect(/a \ \ \ \ \ \ \ \ $this->simple_query("SET SESSION sql_mode = \"\"'");' "$FILE"
             echo "✅ Patched $FILE"
           else
             echo "File not found, skipping"
           fi
 
-      - name: Switch database.php to PDO (avoids sql_mode issue)
+      - name: Switch database.php to PDO
         run: |
-          cat > hms-master/application/config/database.php << 'EOF'
+          cat > hms-master/application/config/database.php << 'PHPCODE'
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
@@ -57,7 +54,7 @@ $db['default'] = array(
     'failover'     => array(),
     'save_queries' => TRUE
 );
-EOF
+PHPCODE
           echo "✅ database.php switched to PDO"
 
       - name: Commit and push fixes
