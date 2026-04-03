@@ -1,0 +1,39 @@
+name: Import SQL to TiDB
+
+on:
+  push:
+    paths:
+      - '**/*.sql'
+  workflow_dispatch:
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find SQL file
+        id: find
+        run: |
+          sql_file=$(find . -name "*.sql" -type f | head -n 1)
+          echo "sql_file=$sql_file" >> $GITHUB_OUTPUT
+
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y mysql-client
+
+      - name: Convert and import
+        run: |
+          # تحويل MyISAM إلى InnoDB وتصحيح التواريخ
+          sed 's/ENGINE=MyISAM/ENGINE=InnoDB/g' "${{ steps.find.outputs.sql_file }}" > tidb_ready.sql
+          sed -i "s/'0000-00-00'/NULL/g" tidb_ready.sql
+          sed -i "s/'0000-00-00 00:00:00'/NULL/g" tidb_ready.sql
+          
+          # استيراد إلى TiDB
+          mysql --ssl-mode=REQUIRED \
+            -h "gateway01.eu-central-1.prod.aws.tidbcloud.com" \
+            -P "4000" \
+            -u "4Q3JgFwtV72XTzm.root" \
+            -p"H35cOolgETH9RMa4" \
+            "hms_db" < tidb_ready.sql
+          
+          echo "✅ Import completed"
