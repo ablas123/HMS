@@ -3,7 +3,7 @@ name: Auto Convert and Import to TiDB
 on:
   push:
     paths:
-      - '*.sql'
+      - '**/*.sql'
   workflow_dispatch:
 
 jobs:
@@ -13,10 +13,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Find SQL file
+      - name: Find SQL file recursively
         id: find
         run: |
-          sql_file=$(ls *.sql 2>/dev/null | head -n 1)
+          sql_file=$(find . -name "*.sql" -type f | head -n 1)
           if [ -z "$sql_file" ]; then
             echo "No SQL file found"
             exit 1
