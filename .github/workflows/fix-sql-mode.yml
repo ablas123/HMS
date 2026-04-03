@@ -13,49 +13,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Patch mysqli_driver.php to disable strict SQL mode
+      - name: Patch mysqli_driver.php
         run: |
           FILE="hms-master/system/database/drivers/mysqli/mysqli_driver.php"
           if [ -f "$FILE" ]; then
             sed -i '/public function db_connect(/a \ \ \ \ \ \ \ \ $this->simple_query("SET SESSION sql_mode = \"\"'");' "$FILE"
-            echo "✅ Patched $FILE"
-          else
-            echo "File not found, skipping"
+            echo "✅ Patched"
           fi
 
-      - name: Switch database.php to PDO
+      - name: Create database.php with PDO
         run: |
-          cat > hms-master/application/config/database.php << 'PHPCODE'
-<?php
-defined('BASEPATH') OR exit('No direct script access allowed');
-
-$active_group = 'default';
-$query_builder = TRUE;
-
-$db['default'] = array(
-    'dsn'          => 'mysql:host=mysql-3cb37202-ablas123a-f12a.a.aivencloud.com;port=10126;dbname=defaultdb;charset=utf8mb4',
-    'hostname'     => '',
-    'port'         => '',
-    'username'     => 'avnadmin',
-    'password'     => 'AVNS_I0p4cP5M1bz4wkTKW2I',
-    'database'     => '',
-    'dbdriver'     => 'pdo',
-    'dbprefix'     => '',
-    'pconnect'     => FALSE,
-    'db_debug'     => (ENVIRONMENT !== 'production'),
-    'cache_on'     => FALSE,
-    'cachedir'     => '',
-    'char_set'     => 'utf8mb4',
-    'dbcollat'     => 'utf8mb4_general_ci',
-    'swap_pre'     => '',
-    'encrypt'      => FALSE,
-    'compress'     => FALSE,
-    'stricton'     => FALSE,
-    'failover'     => array(),
-    'save_queries' => TRUE
-);
-PHPCODE
-          echo "✅ database.php switched to PDO"
+          echo '<?php' > hms-master/application/config/database.php
+          echo 'defined("BASEPATH") OR exit("No direct script access allowed");' >> hms-master/application/config/database.php
+          echo '' >> hms-master/application/config/database.php
+          echo '$active_group = "default";' >> hms-master/application/config/database.php
+          echo '$query_builder = TRUE;' >> hms-master/application/config/database.php
+          echo '' >> hms-master/application/config/database.php
+          echo '$db["default"] = array(' >> hms-master/application/config/database.php
+          echo '    "dsn"          => "mysql:host=mysql-3cb37202-ablas123a-f12a.a.aivencloud.com;port=10126;dbname=defaultdb;charset=utf8mb4",' >> hms-master/application/config/database.php
+          echo '    "hostname"     => "",' >> hms-master/application/config/database.php
+          echo '    "port"         => "",' >> hms-master/application/config/database.php
+          echo '    "username"     => "avnadmin",' >> hms-master/application/config/database.php
+          echo '    "password"     => "AVNS_I0p4cP5M1bz4wkTKW2I",' >> hms-master/application/config/database.php
+          echo '    "database"     => "",' >> hms-master/application/config/database.php
+          echo '    "dbdriver"     => "pdo",' >> hms-master/application/config/database.php
+          echo '    "dbprefix"     => "",' >> hms-master/application/config/database.php
+          echo '    "pconnect"     => FALSE,' >> hms-master/application/config/database.php
+          echo '    "db_debug"     => (ENVIRONMENT !== "production"),' >> hms-master/application/config/database.php
+          echo '    "cache_on"     => FALSE,' >> hms-master/application/config/database.php
+          echo '    "cachedir"     => "",' >> hms-master/application/config/database.php
+          echo '    "char_set"     => "utf8mb4",' >> hms-master/application/config/database.php
+          echo '    "dbcollat"     => "utf8mb4_general_ci",' >> hms-master/application/config/database.php
+          echo '    "swap_pre"     => "",' >> hms-master/application/config/database.php
+          echo '    "encrypt"      => FALSE,' >> hms-master/application/config/database.php
+          echo '    "compress"     => FALSE,' >> hms-master/application/config/database.php
+          echo '    "stricton"     => FALSE,' >> hms-master/application/config/database.php
+          echo '    "failover"     => array(),' >> hms-master/application/config/database.php
+          echo '    "save_queries" => TRUE' >> hms-master/application/config/database.php
+          echo ');' >> hms-master/application/config/database.php
+          echo '/* End of file database.php */' >> hms-master/application/config/database.php
+          echo "✅ database.php created with PDO"
 
       - name: Commit and push fixes
         run: |
