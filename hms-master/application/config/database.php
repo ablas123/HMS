@@ -5,7 +5,7 @@ $active_record = TRUE;
 
 $ondevelop = FALSE;
 
-$db['default']['dsn'] = 'mysql:host=gateway01.eu-central-1.prod.aws.tidbcloud.com;port=4000;dbname=hms_db;charset=utf8mb4';
+$db['default']['dsn'] = 'mysql:host=gateway01.eu-central-1.prod.aws.tidbcloud.com;port=4000;dbname=hms_db;charset=utf8mb4;sslmode=require';
 $db['default']['hostname'] = '';
 $db['default']['port'] = '';
 $db['default']['username'] = '4Q3JgFwtV72XTzm.root';
@@ -22,8 +22,6 @@ $db['default']['dbcollat'] = 'utf8mb4_general_ci';
 $db['default']['swap_pre'] = '';
 $db['default']['autoinit'] = TRUE;
 $db['default']['stricton'] = FALSE;
-$db['default']['encrypt'] = TRUE;
-$db['default']['ssl_verify'] = FALSE;
 
 /* End of file database.php */
 /* Location: ./application/config/database.php */
