@@ -1,0 +1,34 @@
+name: Import SQL to Aiven MySQL
+
+on:
+  push:
+    paths:
+      - '**/*.sql'
+  workflow_dispatch:
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find SQL file
+        id: find
+        run: |
+          sql_file=$(find . -name "*.sql" -type f | head -n 1)
+          echo "sql_file=$sql_file" >> $GITHUB_OUTPUT
+
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y mysql-client
+
+      - name: Import to Aiven
+        env:
+          DB_HOST: ${{ secrets.AIVEN_HOST }}
+          DB_PORT: ${{ secrets.AIVEN_PORT }}
+          DB_USER: ${{ secrets.AIVEN_USER }}
+          DB_PASSWORD: ${{ secrets.AIVEN_PASSWORD }}
+          DB_NAME: ${{ secrets.AIVEN_DATABASE }}
+          SQL_FILE: ${{ steps.find.outputs.sql_file }}
+        run: |
+          mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$SQL_FILE"
+          echo "✅ Import completed"
