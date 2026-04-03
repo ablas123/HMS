@@ -1,9 +1,28 @@
-$db['default']['hostname'] = 'mysql-3cb37202-ablas123a-f12a.a.aivencloud.com';
-$db['default']['port']     = '10126';
-$db['default']['username'] = 'avnadmin';
-$db['default']['password'] = 'AVNS_I0p4cP5M1bz4wkTKW2I';
-$db['default']['database'] = 'defaultdb';
-$db['default']['dbdriver'] = 'mysqli';
-$db['default']['stricton'] = FALSE;
-$db['default']['encrypt'] = FALSE;
-$db['default']['ssl_verify'] = FALSE;
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+$active_group = 'default';
+$query_builder = TRUE;
+
+$db['default'] = array(
+    'dsn'          => '',
+    'hostname'     => 'mysql-3cb37202-ablas123a-f12a.a.aivencloud.com',
+    'port'         => '10126',
+    'username'     => 'avnadmin',
+    'password'     => 'AVNS_I0p4cP5M1bz4wkTKW2I',
+    'database'     => 'defaultdb',
+    'dbdriver'     => 'mysqli',
+    'dbprefix'     => '',
+    'pconnect'     => FALSE,
+    'db_debug'     => (ENVIRONMENT !== 'production'),
+    'cache_on'     => FALSE,
+    'cachedir'     => '',
+    'char_set'     => 'utf8mb4',
+    'dbcollat'     => 'utf8mb4_general_ci',
+    'swap_pre'     => '',
+    'encrypt'      => FALSE,
+    'compress'     => FALSE,
+    'stricton'     => FALSE,
+    'failover'     => array(),
+    'save_queries' => TRUE
+);
