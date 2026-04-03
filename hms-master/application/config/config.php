@@ -1,4 +1,10 @@
-<?php
+<?php<?php
+// تعطيل sql_mode الصارم
+if (function_exists('mysqli_report')) {
+    $db =& DB();
+    $db->query("SET SESSION sql_mode = ''");
+}
+// باقي الإعدادات كما هي...
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 if ( ! defined('BASEPATH')) exit('No direct script access allowed');
