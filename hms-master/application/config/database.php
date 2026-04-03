@@ -3,15 +3,12 @@
 $active_group = 'default';
 $active_record = TRUE;
 
-$ondevelop = FALSE;
-
-$db['default']['dsn'] = 'mysql:host=gateway01.eu-central-1.prod.aws.tidbcloud.com;port=4000;dbname=hms_db;charset=utf8mb4;sslmode=require';
-$db['default']['hostname'] = '';
-$db['default']['port'] = '';
-$db['default']['username'] = '4Q3JgFwtV72XTzm.root';
-$db['default']['password'] = 'H35cOolgETH9RMa4';
-$db['default']['database'] = '';
-$db['default']['dbdriver'] = 'pdo';
+$db['default']['hostname'] = 'mysql-3cb37202-ablas123a-f12a.a.aivencloud.com';
+$db['default']['port']     = '10126';
+$db['default']['username'] = 'avnadmin';
+$db['default']['password'] = 'AVNS_I0p4cP5M1bz4wkTKW2I';
+$db['default']['database'] = 'defaultdb';
+$db['default']['dbdriver'] = 'mysqli';
 $db['default']['dbprefix'] = '';
 $db['default']['pconnect'] = FALSE;
 $db['default']['db_debug'] = TRUE;
@@ -22,6 +19,5 @@ $db['default']['dbcollat'] = 'utf8mb4_general_ci';
 $db['default']['swap_pre'] = '';
 $db['default']['autoinit'] = TRUE;
 $db['default']['stricton'] = FALSE;
-
-/* End of file database.php */
-/* Location: ./application/config/database.php */
+$db['default']['encrypt']  = TRUE;
+$db['default']['ssl_verify'] = FALSE;
