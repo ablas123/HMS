@@ -3,11 +3,11 @@
 $active_group = 'default';
 $active_record = TRUE;
 
-$db['default']['hostname'] = 'mysql-3cb37202-ablas123a-f12a.a.aivencloud.com';
-$db['default']['port']     = '10126';
-$db['default']['username'] = 'avnadmin';
-$db['default']['password'] = 'AVNS_I0p4cP5M1bz4wkTKW2I';
-$db['default']['database'] = 'defaultdb';
+$db['default']['hostname'] = 'gateway01.eu-central-1.prod.aws.tidbcloud.com';
+$db['default']['port']     = '4000';
+$db['default']['username'] = '4Q3JgFwtV72XTzm.root';
+$db['default']['password'] = 'H35cOolgETH9RMa4';
+$db['default']['database'] = 'hms_db';
 $db['default']['dbdriver'] = 'mysqli';
 $db['default']['dbprefix'] = '';
 $db['default']['pconnect'] = FALSE;
