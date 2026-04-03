@@ -1,4 +1,4 @@
-name: Auto Convert and Import to TiDB
+name: Auto Convert SQL to TiDB and Import
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Find SQL file recursively
+      - name: Find SQL file
         id: find
         run: |
           sql_file=$(find . -name "*.sql" -type f | head -n 1)
@@ -24,14 +24,42 @@ jobs:
           echo "sql_file=$sql_file" >> $GITHUB_OUTPUT
           echo "Found: $sql_file"
 
-      - name: Convert MyISAM to InnoDB and latin1 to utf8mb4
+      - name: Convert SQL to TiDB-compatible format
         run: |
           input="${{ steps.find.outputs.sql_file }}"
           output="tidb_ready.sql"
-          sed 's/ENGINE=MyISAM/ENGINE=InnoDB/g' "$input" > "$output"
+          
+          # نسخ الملف الأصلي
+          cp "$input" "$output"
+          
+          # 1. استبدال ENGINE=MyISAM بـ ENGINE=InnoDB
+          sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' "$output"
+          
+          # 2. استبدال latin1 بـ utf8mb4 (الترميز المتوافق مع يونيكود)
           sed -i 's/latin1/utf8mb4/g' "$output"
           sed -i 's/CHARACTER SET latin1/CHARACTER SET utf8mb4/g' "$output"
-          echo "Converted file ready: $output"
+          sed -i 's/CHARSET=latin1/CHARSET=utf8mb4/g' "$output"
+          
+          # 3. إزالة أوامر ALTER TABLE التي تحاول إضافة AUTO_INCREMENT بعد إنشاء الجدول
+          sed -i '/ALTER TABLE.*MODIFY COLUMN.*AUTO_INCREMENT/d' "$output"
+          sed -i '/ALTER TABLE.*CHANGE COLUMN.*AUTO_INCREMENT/d' "$output"
+          sed -i '/ALTER TABLE.*ADD.*AUTO_INCREMENT/d' "$output"
+          
+          # 4. إزالة أوامر LOCK TABLES و UNLOCK TABLES (غير مدعومة في TiDB)
+          sed -i '/LOCK TABLES/d' "$output"
+          sed -i '/UNLOCK TABLES/d' "$output"
+          
+          # 5. إزالة أوامر SET SQL_MODE (قد تسبب مشاكل)
+          sed -i '/SET SQL_MODE/d' "$output"
+          
+          # 6. إزالة التعليقات التي تحتوي على أخطاء محتملة (مثل phpMyAdmin)
+          sed -i '/\/\*!40101/d' "$output"
+          sed -i '/\/\*!50013/d' "$output"
+          
+          # 7. تحويل أي AUTO_INCREMENT منخفض إلى قيمة صالحة (إذا وجد)
+          sed -i 's/AUTO_INCREMENT=0/AUTO_INCREMENT=1/g' "$output"
+          
+          echo "✅ Conversion completed. Output file: $output"
 
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mysql-client
@@ -44,7 +72,8 @@ jobs:
           TIDB_PASSWORD: ${{ secrets.TIDB_PASSWORD }}
           TIDB_DATABASE: ${{ secrets.TIDB_DATABASE }}
         run: |
-          mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS \`$TIDB_DATABASE\`;"
+          mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
+            -e "CREATE DATABASE IF NOT EXISTS \`$TIDB_DATABASE\`;"
 
       - name: Import converted SQL to TiDB
         env:
@@ -54,15 +83,16 @@ jobs:
           TIDB_PASSWORD: ${{ secrets.TIDB_PASSWORD }}
           TIDB_DATABASE: ${{ secrets.TIDB_DATABASE }}
         run: |
-          mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" "$TIDB_DATABASE" < tidb_ready.sql
+          mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
+            "$TIDB_DATABASE" < tidb_ready.sql
           echo "✅ Import completed successfully"
 
-      - name: Delete original SQL file (optional)
+      - name: Delete original and temporary SQL files
         run: |
           rm -f "${{ steps.find.outputs.sql_file }}"
           rm -f tidb_ready.sql
           git config user.name 'github-actions[bot]'
           git config user.email 'bot@github.com'
           git add .
-          git diff --staged --quiet || git commit -m "Remove SQL files after import"
+          git diff --staged --quiet || git commit -m "Remove SQL files after successful import"
           git push
