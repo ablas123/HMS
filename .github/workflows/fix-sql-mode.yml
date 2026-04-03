@@ -1,0 +1,70 @@
+name: Fix SQL_MODE and Deploy
+
+on:
+  push:
+    paths:
+      - 'hms-master/application/config/database.php'
+      - 'hms-master/system/database/drivers/mysqli/mysqli_driver.php'
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch mysqli_driver.php to disable strict SQL mode
+        run: |
+          FILE="hms-master/system/database/drivers/mysqli/mysqli_driver.php"
+          # إذا كان الملف موجوداً، نضيف سطراً لتعطيل sql_mode في دالة db_connect()
+          if [ -f "$FILE" ]; then
+            # البحث عن السطر الذي يبدأ بـ 'public function db_connect('
+            # وإضافة أمر SET SESSION sql_mode = '' بعد قوس الافتتاح مباشرة
+            sed -i '/public function db_connect(/a \ \ \ \ \ \ \ \ $this->simple_query("SET SESSION sql_mode = '\'''\''");' "$FILE"
+            echo "✅ Patched $FILE"
+          else
+            echo "File not found, skipping"
+          fi
+
+      - name: Switch database.php to PDO (avoids sql_mode issue)
+        run: |
+          cat > hms-master/application/config/database.php << 'EOF'
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+$active_group = 'default';
+$query_builder = TRUE;
+
+$db['default'] = array(
+    'dsn'          => 'mysql:host=mysql-3cb37202-ablas123a-f12a.a.aivencloud.com;port=10126;dbname=defaultdb;charset=utf8mb4',
+    'hostname'     => '',
+    'port'         => '',
+    'username'     => 'avnadmin',
+    'password'     => 'AVNS_I0p4cP5M1bz4wkTKW2I',
+    'database'     => '',
+    'dbdriver'     => 'pdo',
+    'dbprefix'     => '',
+    'pconnect'     => FALSE,
+    'db_debug'     => (ENVIRONMENT !== 'production'),
+    'cache_on'     => FALSE,
+    'cachedir'     => '',
+    'char_set'     => 'utf8mb4',
+    'dbcollat'     => 'utf8mb4_general_ci',
+    'swap_pre'     => '',
+    'encrypt'      => FALSE,
+    'compress'     => FALSE,
+    'stricton'     => FALSE,
+    'failover'     => array(),
+    'save_queries' => TRUE
+);
+EOF
+          echo "✅ database.php switched to PDO"
+
+      - name: Commit and push fixes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'bot@github.com'
+          git add hms-master/application/config/database.php
+          git add hms-master/system/database/drivers/mysqli/mysqli_driver.php
+          git diff --staged --quiet || git commit -m "Auto-fix: disable strict SQL mode and use PDO"
+          git push
