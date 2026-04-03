@@ -1,4 +1,4 @@
-name: Auto Convert SQL to TiDB and Import
+name: Smart TiDB Import (Auto-Fix)
 
 on:
   push:
@@ -7,81 +7,128 @@ on:
   workflow_dispatch:
 
 jobs:
-  convert-and-import:
+  smart-import:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Find SQL file
         id: find
         run: |
           sql_file=$(find . -name "*.sql" -type f | head -n 1)
-          if [ -z "$sql_file" ]; then
-            echo "No SQL file found"
-            exit 1
-          fi
           echo "sql_file=$sql_file" >> $GITHUB_OUTPUT
-          echo "Found: $sql_file"
-
-      - name: Convert SQL to TiDB-compatible format
-        run: |
-          input="${{ steps.find.outputs.sql_file }}"
-          output="tidb_ready.sql"
-          
-          cp "$input" "$output"
-          
-          sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' "$output"
-          sed -i 's/latin1/utf8mb4/g' "$output"
-          sed -i 's/CHARACTER SET latin1/CHARACTER SET utf8mb4/g' "$output"
-          sed -i 's/CHARSET=latin1/CHARSET=utf8mb4/g' "$output"
-          
-          sed -i '/ALTER TABLE.*MODIFY COLUMN.*AUTO_INCREMENT/d' "$output"
-          sed -i '/ALTER TABLE.*CHANGE COLUMN.*AUTO_INCREMENT/d' "$output"
-          sed -i '/ALTER TABLE.*ADD.*AUTO_INCREMENT/d' "$output"
-          
-          sed -i '/LOCK TABLES/d' "$output"
-          sed -i '/UNLOCK TABLES/d' "$output"
-          sed -i '/SET SQL_MODE/d' "$output"
-          sed -i '/\/\*!40101/d' "$output"
-          sed -i '/\/\*!50013/d' "$output"
-          sed -i 's/AUTO_INCREMENT=0/AUTO_INCREMENT=1/g' "$output"
-          
-          echo "✅ Conversion completed."
 
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mysql-client
 
-      - name: Drop and recreate database (clean import)
+      - name: Smart import with auto-fix
         env:
           TIDB_HOST: ${{ secrets.TIDB_HOST }}
           TIDB_PORT: ${{ secrets.TIDB_PORT }}
           TIDB_USER: ${{ secrets.TIDB_USER }}
           TIDB_PASSWORD: ${{ secrets.TIDB_PASSWORD }}
           TIDB_DATABASE: ${{ secrets.TIDB_DATABASE }}
+          SQL_FILE: ${{ steps.find.outputs.sql_file }}
         run: |
-          mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
-            -e "DROP DATABASE IF EXISTS \`$TIDB_DATABASE\`; CREATE DATABASE \`$TIDB_DATABASE\`;"
-          echo "✅ Database recreated."
+          set +e  # لا نريد توقف السكريبت عند أول خطأ
+          MAX_RETRIES=5
+          RETRY=0
+          CURRENT_FILE="$SQL_FILE"
+          
+          # وظيفة لتطبيق الإصلاحات المعروفة
+          apply_fixes() {
+            local file=$1
+            local error_msg=$2
+            
+            # إصلاح 1: محرك MyISAM -> InnoDB
+            sed -i 's/ENGINE=MyISAM/ENGINE=InnoDB/g' "$file"
+            
+            # إصلاح 2: ترميز latin1 -> utf8mb4
+            sed -i 's/latin1/utf8mb4/g' "$file"
+            sed -i 's/CHARACTER SET latin1/CHARACTER SET utf8mb4/g' "$file"
+            
+            # إصلاح 3: إزالة أوامر AUTO_INCREMENT غير المدعومة
+            sed -i '/ALTER TABLE.*MODIFY COLUMN.*AUTO_INCREMENT/d' "$file"
+            sed -i '/ALTER TABLE.*CHANGE COLUMN.*AUTO_INCREMENT/d' "$file"
+            
+            # إصلاح 4: إزالة LOCK TABLES
+            sed -i '/LOCK TABLES/d' "$file"
+            sed -i '/UNLOCK TABLES/d' "$file"
+            
+            # إصلاح 5: إزالة SET SQL_MODE
+            sed -i '/SET SQL_MODE/d' "$file"
+            
+            # إصلاح 6: تحويل التواريخ الصفرية
+            sed -i "s/'0000-00-00'/NULL/g" "$file"
+            sed -i "s/'0000-00-00 00:00:00'/NULL/g" "$file"
+            
+            # إصلاح 7: إزالة التعليقات الخاصة بـ phpMyAdmin
+            sed -i '/\/\*!40101/d' "$file"
+            
+            # إصلاح 8: معالجة خطأ "Table already exists" -> حذف الجداول مسبقاً
+            if echo "$error_msg" | grep -q "already exists"; then
+              echo "Detected 'already exists' error. Will drop and recreate database."
+              mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
+                -e "DROP DATABASE IF EXISTS \`$TIDB_DATABASE\`; CREATE DATABASE \`$TIDB_DATABASE\`;"
+            fi
+            
+            # إصلاح 9: معالجة خطأ "Unknown column" (قد يكون بسبب أمر INSERT قديم) -> حذف INSERT
+            if echo "$error_msg" | grep -q "Unknown column"; then
+              echo "Removing problematic INSERT statement"
+              sed -i '/^INSERT INTO .* VALUES.*$/d' "$file"
+            fi
+            
+            # إصلاح 10: معالجة "Incorrect datetime value" إضافية
+            if echo "$error_msg" | grep -q "Incorrect datetime"; then
+              sed -i "s/'0000-00-00'/NULL/g" "$file"
+              sed -i "s/'0000-00-00 [0-9:]*'/NULL/g" "$file"
+            fi
+            
+            echo "✅ Fixes applied to $file"
+          }
+          
+          # إنشاء نسخة عمل قابلة للتعديل
+          WORK_FILE="tidb_ready.sql"
+          cp "$CURRENT_FILE" "$WORK_FILE"
+          
+          # حلقة المحاولات
+          while [ $RETRY -lt $MAX_RETRIES ]; do
+            echo "=== Attempt $((RETRY+1))/$MAX_RETRIES ==="
+            
+            # محاولة الاستيراد
+            mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
+              "$TIDB_DATABASE" < "$WORK_FILE" 2> error.log
+            
+            if [ $? -eq 0 ]; then
+              echo "✅ Import succeeded on attempt $((RETRY+1))"
+              break
+            fi
+            
+            # قراءة الخطأ
+            ERROR_MSG=$(cat error.log)
+            echo "❌ Import failed: $ERROR_MSG"
+            
+            # إذا وصلنا لآخر محاولة، نخرج بخطأ
+            if [ $((RETRY+1)) -eq $MAX_RETRIES ]; then
+              echo "FATAL: All $MAX_RETRIES attempts failed."
+              echo "Last error: $ERROR_MSG"
+              exit 1
+            fi
+            
+            # تطبيق الإصلاحات بناءً على الخطأ
+            apply_fixes "$WORK_FILE" "$ERROR_MSG"
+            
+            # زيادة العداد
+            RETRY=$((RETRY+1))
+          done
+          
+          echo "🎉 Smart import completed successfully."
 
-      - name: Import converted SQL to TiDB
-        env:
-          TIDB_HOST: ${{ secrets.TIDB_HOST }}
-          TIDB_PORT: ${{ secrets.TIDB_PORT }}
-          TIDB_USER: ${{ secrets.TIDB_USER }}
-          TIDB_PASSWORD: ${{ secrets.TIDB_PASSWORD }}
-          TIDB_DATABASE: ${{ secrets.TIDB_DATABASE }}
+      - name: Cleanup
         run: |
-          mysql -h "$TIDB_HOST" -P "$TIDB_PORT" -u "$TIDB_USER" -p"$TIDB_PASSWORD" \
-            "$TIDB_DATABASE" < tidb_ready.sql
-          echo "✅ Import completed successfully"
-
-      - name: Delete original and temporary SQL files
-        run: |
-          rm -f "${{ steps.find.outputs.sql_file }}"
-          rm -f tidb_ready.sql
+          rm -f tidb_ready.sql error.log
           git config user.name 'github-actions[bot]'
           git config user.email 'bot@github.com'
           git add .
-          git diff --staged --quiet || git commit -m "Remove SQL files after successful import"
+          git diff --staged --quiet || git commit -m "Auto-cleanup after import"
           git push
