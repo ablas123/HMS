@@ -22,8 +22,7 @@ $db['default']['swap_pre'] = '';
 $db['default']['autoinit'] = TRUE;
 $db['default']['stricton'] = FALSE;
 $db['default']['encrypt']  = TRUE;
-$db['default']['ssl_ca']   = '/var/www/html/certs/ca.pem';
-$db['default']['ssl_verify'] = TRUE;
+$db['default']['ssl_verify'] = FALSE;   // تعطيل التحقق من الشهادة (للتجربة)
 
 /* End of file database.php */
 /* Location: ./application/config/database.php */
