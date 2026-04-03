@@ -1,0 +1,29 @@
+name: Unzip uploaded file
+
+on:
+  push:
+    paths:
+      - '*.zip'   # يتم تشغيل العملية تلقائيًا عند رفع أي ملف بصيغة .zip
+
+jobs:
+  unzip-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Extract zip file
+        uses: montudor/action-zip@v1
+        with:
+          args: unzip -qq '*.zip' -d ./
+
+      - name: Delete the original zip file
+        run: rm *.zip
+
+      - name: Commit and push changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add .
+          git diff --staged --quiet || git commit -m 'Extract zip file contents'
+          git push
