@@ -21,10 +21,13 @@ jobs:
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mysql-client
 
-      - name: Disable primary key requirement and import
+      - name: Import with primary key disabled
         run: |
-          # تعطيل شرط المفتاح الأساسي مؤقتاً
-          mysql --ssl-mode=REQUIRED -h "mysql-3cb37202-ablas123a-f12a.a.aivencloud.com" -P "10126" -u "avnadmin" -p"AVNS_I0p4cP5M1bz4wkTKW2I" "defaultdb" -e "SET SESSION sql_require_primary_key = 0;"
-          # استيراد الملف
-          mysql --ssl-mode=REQUIRED -h "mysql-3cb37202-ablas123a-f12a.a.aivencloud.com" -P "10126" -u "avnadmin" -p"AVNS_I0p4cP5M1bz4wkTKW2I" "defaultdb" < "${{ steps.find.outputs.sql_file }}"
-          echo "✅ Import completed"
+          (echo "SET SESSION sql_require_primary_key = 0;" && cat "${{ steps.find.outputs.sql_file }}") | \
+          mysql --ssl-mode=REQUIRED \
+            -h "mysql-3cb37202-ablas123a-f12a.a.aivencloud.com" \
+            -P "10126" \
+            -u "avnadmin" \
+            -p"AVNS_I0p4cP5M1bz4wkTKW2I" \
+            "defaultdb"
+          echo "✅ Import completed successfully"
